@@ -6,6 +6,18 @@ using System.Windows.Forms;
 namespace LFSkjuler
 {
 
+	public enum SolutionHideMode
+	{
+		/// <summary>
+		/// Attempt to blend the solution in with the surrounding
+		/// </summary>
+		Camouflage,
+		/// <summary>
+		/// Attempt to hide the solution completely
+		/// </summary>
+		Hide
+	}
+
 	// TODO: show the curtainPanel when the form is being dragged, hide it when not. don't draw to the censor picture when the form is being dragged
 	public partial class LFSkjulerForm : Form
 	{
@@ -14,6 +26,8 @@ namespace LFSkjuler
 
 		// Whether or not we're currently dragging/resizing the window
 		private bool dragSizing = false;
+
+		SolutionHideMode censoringMode = SolutionHideMode.Hide;
 
 		public LFSkjulerForm()
 		{
@@ -47,6 +61,7 @@ namespace LFSkjuler
 		private void LFSkjulerForm_Resize(object sender, EventArgs e)
 		{
 			curtain.Size = this.Size;
+			optionPanel.Size = new Size(this.Size.Width, optionPanel.Size.Height);
 		}
 
 		private void LFSkjulerForm_ResizeEnd(object sender, EventArgs e)
@@ -74,17 +89,57 @@ namespace LFSkjuler
 			using (Graphics g = Graphics.FromImage(censoringBitmap))
 			{
 				Rectangle captureRegion = new Rectangle(this.Location.X, this.Location.Y, this.Size.Width, this.Size.Height);
-				List<System.Drawing.Point> solutionPixels = Display.GetSolutionPixels(captureRegion);
+				List<System.Drawing.Point> solutionPixels = Display.GetSolutionPixels(
+					captureRegion,
+					color => {
+						bool highSaturation = !(color.GetSaturation() < 0.1);
+						bool hueCheck = true;
+						bool brightnessCheck = true;
+
+						if (censoringMode == SolutionHideMode.Hide)
+						{
+							float hue = color.GetHue();
+							hueCheck = (hue < 40 || hue > 320);
+
+							float brightness = color.GetBrightness();
+							brightnessCheck = brightness > 0.6;
+						}
+
+						return highSaturation && hueCheck;
+					}
+				);
 
 				for (int i = 0; i < solutionPixels.Count; i++)
 				{
-					System.Drawing.Point pixel = solutionPixels[i];
-					System.Drawing.Point formPoint = this.PointToClient(pixel);
-					g.FillRectangle(Brushes.Black, formPoint.X, formPoint.Y, 1, 1);
+					Point pixel = solutionPixels[i];
+					Point formPoint = censorBox.PointToClient(pixel);
+					g.FillRectangle(
+						(censoringMode == SolutionHideMode.Camouflage ? Brushes.Black : Brushes.White),
+						formPoint.X, formPoint.Y,
+						1, 1
+					);
 				}
 			}
 
 			censorBox.Image = censoringBitmap;
+		}
+
+		private void camouflageRadio_CheckedChanged(object sender, EventArgs e)
+		{
+			if (!camouflageRadio.Checked)
+				return;
+
+			censoringMode = SolutionHideMode.Camouflage;
+			RepaintSolutionCensoring();
+		}
+
+		private void hideRadio_CheckedChanged(object sender, EventArgs e)
+		{
+			if (!hideRadio.Checked)
+				return;
+
+			censoringMode = SolutionHideMode.Hide;
+			RepaintSolutionCensoring();
 		}
 	}
 }

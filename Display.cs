@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows;
@@ -31,7 +32,7 @@ namespace LFSkjuler
 			}
 		}
 
-		public unsafe static List<System.Drawing.Point> GetSolutionPixels(Rectangle box)
+		public unsafe static List<System.Drawing.Point> GetSolutionPixels(Rectangle box, Func<Color,bool> colorCheck)
 		{
 			BitmapData readData = screenRead.LockBits(new Rectangle(0, 0, screenRead.Width, screenRead.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
 
@@ -51,7 +52,7 @@ namespace LFSkjuler
 						(screenPtr + ptrOffset)[0]
 					);
 
-					if (CheckColorPartOfSolution(color))
+					if (colorCheck(color))
 						pixels.Add(new System.Drawing.Point(x, y));
 				}
 			}
